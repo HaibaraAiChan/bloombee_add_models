@@ -39,8 +39,8 @@ class LayerNorm(nn.Module):
 class OPTMLP(nn.Module):  
     def __init__(self, config: OPTConfig):  
         super().__init__()  
-        self.fc1 = nn.Linear(config.hidden_size, config.intermediate_size)  
-        self.fc2 = nn.Linear(config.intermediate_size, config.hidden_size)  
+        self.fc1 = nn.Linear(config.hidden_size, config.hidden_size*4)  
+        self.fc2 = nn.Linear(config.hidden_size*4, config.hidden_size)  
         self.activation = F.gelu  
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:  
@@ -58,7 +58,7 @@ class OptimizedOPTAttention(OPTAttention):
     def _optimized_attention(self, query_states, key_states, value_states, attention_mask):  
         if self._attention_graph is None:  
             self._attention_graph = make_inference_graphed_callable(  
-                self._attention_forward, sample_args=(query_states, key_staces, value_states, attention_mask)  
+                self._attention_forward, sample_args=(query_states, key_states, value_states, attention_mask)  
             )  
         return self._attention_graph(query_states, key_states, value_states, attention_mask)  
 
@@ -122,8 +122,8 @@ class OptimizedOPTDecoderLayer(OPTDecoderLayer):
         self.embed_dim = config.hidden_size  
         self.self_attn = OptimizedOPTAttention(config=config, is_decoder=True)  
         self.mlp = OPTMLP(config)  
-        self.input_layernorm = LayerNorm(self.embed_dim, eps=config.layer_norm_eps)  
-        self.post_attention_layernorm = LayerNorm(self.embed_dim, eps=config.layer_norm_eps)  
+        self.input_layernorm = nn.LayerNorm(self.embed_dim, elementwise_affine=config.layer_norm_elementwise_affine)  
+        self.post_attention_layernorm = nn.LayerNorm(self.embed_dim, elementwise_affine=config.layer_norm_elementwise_affine)  
 
         self.pre_attn_graph = None  
         self.post_attn_graph = None  
@@ -177,7 +177,7 @@ class OptimizedOPTDecoderLayer(OPTDecoderLayer):
         # Fully Connected  
         residual = hidden_states  
 
-        if hidden_states.size(1) == 1 and torch.is_inference_mode_enabled() and hidden_staces.device.type == "cuda":  
+        if hidden_states.size(1) == 1 and torch.is_inference_mode_enabled() and hidden_states.device.type == "cuda":  
             hidden_states = self._optimized_output_layernorm(hidden_states)  
         else:  
             hidden_states = self.post_attention_layernorm(hidden_states)  

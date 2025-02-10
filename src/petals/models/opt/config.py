@@ -17,7 +17,9 @@ class DistributedOPTConfig(OPTConfig, ClientConfig, PTuneConfig, LMHeadConfig):
     block_class = WrappedOPTBlock  
     attn_class = OPTAttention  
     block_prefix = "model.decoder.layers"  
-
+    
+    num_key_value_groups = 1
+    
     @classmethod  
     def from_pretrained(  
         cls, model_name_or_path: Union[str, os.PathLike, None], *args, dht_prefix: Optional[str] = None, **kwargs  

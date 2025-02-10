@@ -190,7 +190,7 @@ class Server:
             quant_type = QuantType.NF4 if device.type == "cuda" else QuantType.NONE
         self.quant_type = quant_type
         logger.info(f"Model weights are loaded in {get_dtype_name(torch_dtype, quant_type)} format")
-
+        print('server block_config ', self.block_config)
         is_multiquery_attn = self.block_config.num_key_value_groups > 1
         if max_batch_size is None:
             max_batch_size = 8192 if is_multiquery_attn else 2048
