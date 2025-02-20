@@ -40,6 +40,7 @@ class WrappedBloomBlock(BloomBlock):
             past_key_values_length=past_length,
         )
         attention_mask = attention_mask.bool()
+        import pdb; pdb.set_trace()
         return super().forward(
             hidden_states, *args, attention_mask=attention_mask, alibi=alibi, layer_past=layer_past, **kwargs
         )

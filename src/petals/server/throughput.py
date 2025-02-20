@@ -202,6 +202,8 @@ def measure_compute_rps(
     if not tensor_parallel_devices:
         tensor_parallel_devices = (device,)
     with torch.inference_mode():
+        import pdb; pdb.set_trace()
+        print('come into measure_compute_rps ...')
         block = get_model_block(config)
         block = block.to(dtype)
         block = convert_block(block, 0, config, tensor_parallel_devices, device, quant_type=quant_type, freeze=True)
@@ -219,8 +221,13 @@ def measure_compute_rps(
         synchronize(device)
 
         start_time = time.perf_counter()
+        cnt = 0 ####
+        print('cnt' , cnt)
         for _ in range(n_steps):
             cache = step(cache)
+            cnt += 1
+            print('cnt' , cnt)
+            
         synchronize(device)
         elapsed = time.perf_counter() - start_time
         device_rps = n_steps * n_tokens / elapsed
