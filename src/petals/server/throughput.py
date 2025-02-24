@@ -202,7 +202,7 @@ def measure_compute_rps(
     if not tensor_parallel_devices:
         tensor_parallel_devices = (device,)
     with torch.inference_mode():
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         print('come into measure_compute_rps ...')
         block = get_model_block(config)
         block = block.to(dtype)

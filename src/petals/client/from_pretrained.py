@@ -23,13 +23,19 @@ class FromPretrainedMixin:
         low_cpu_mem_usage: Optional[bool] = None,
         **kwargs,
     ):
+        print('model_name_or_path ', model_name_or_path)
         model_name_or_path = get_compatible_model_repo(model_name_or_path)
         if low_cpu_mem_usage is None:
             low_cpu_mem_usage = True
-
+        
+        
         with ignore_keys(cls._keys_to_ignore_on_load_unexpected):
+            print('*args', args)
+            print('kwargs',kwargs)
+            print('model_name_or_path',model_name_or_path)
+            
             return super().from_pretrained(model_name_or_path, *args, low_cpu_mem_usage=low_cpu_mem_usage, **kwargs)
-
+    
     from_pretrained.__doc__ = BloomPreTrainedModel.from_pretrained.__doc__.replace(
         "low_cpu_mem_usage(`bool`, *optional*)",
         "low_cpu_mem_usage(`bool`, *optional*, defaults to `True` in Petals)",

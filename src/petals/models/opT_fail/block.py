@@ -12,7 +12,7 @@ from transformers.models.bloom.modeling_bloom import BloomBlock, build_alibi_ten
 from petals.utils.misc import is_dummy
 
 
-class WrappedBloomBlock(BloomBlock):
+class WrappedOPTBlock(BloomBlock): # reuse BloomBlock to implement OPT decoder layer
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -31,8 +31,15 @@ class WrappedBloomBlock(BloomBlock):
         past_length = 0 if layer_past is None else layer_past[0].shape[-1]
         seq_length_with_past = seq_length + past_length
         attention_mask = torch.ones((batch_size, seq_length_with_past), device=hidden_states.device)
-        if alibi is None:
-            alibi = build_alibi_tensor(attention_mask, num_heads=self.num_heads, dtype=hidden_states.dtype)
+        # if alibi is None:
+        #     alibi = build_alibi_tensor(attention_mask, num_heads=self.num_heads, dtype=hidden_states.dtype)
+            
+        # Replace alibi with a zero tensor  
+        if alibi is None:  
+            alibi = torch.zeros((batch_size * self.num_heads, 1, seq_length_with_past),   
+                                device=hidden_states.device, dtype=hidden_states.dtype)   
+            
+        
         attention_mask = _prepare_4d_causal_attention_mask(
             attention_mask=attention_mask,
             input_shape=(batch_size, seq_length),
@@ -44,3 +51,27 @@ class WrappedBloomBlock(BloomBlock):
         return super().forward(
             hidden_states, *args, attention_mask=attention_mask, alibi=alibi, layer_past=layer_past, **kwargs
         )
+
+    
+    
+    def _reorder_cache_from_bloom_to_OPT(
+        self, key_value: Tuple[torch.Tensor], batch_size: int, seq_length: int
+    ) -> Tuple[torch.Tensor]:
+        key_states, value_states = key_value
+        key_states = key_states.permute(0, 2, 1)
+        key_states = key_states.view(
+            batch_size, self.self_attn.num_key_value_heads, seq_length, self.self_attn.head_dim
+        )
+        value_states = value_states.view(*key_states.shape)
+        return (key_states, value_states)
+
+    def _reorder_cache_from_llama_to_OPT(
+        self, key_value: Tuple[torch.Tensor], batch_size: int, seq_length: int
+    ) -> Tuple[torch.Tensor]:
+        key_states, value_states = key_value
+        value_states = value_states.view(
+            batch_size * self.self_attn.num_key_value_heads, seq_length, self.self_attn.head_dim
+        )
+        key_states = key_states.view(*value_states.shape)
+        key_states = key_states.permute(0, 2, 1)
+        return (key_states, value_states)

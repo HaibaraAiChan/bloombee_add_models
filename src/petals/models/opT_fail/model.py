@@ -13,6 +13,8 @@ from petals.client.ptune import PTuneMixin
 from petals.client.remote_generation import RemoteGenerationMixin, RemotePastKeyValues  
 from petals.client.remote_sequential import RemoteSequential  
 from petals.models.opt.config import DistributedOPTConfig  
+from petals.models.bloom.config import DistributedBloomConfig
+from transformers.models.bloom import BloomModel
 
 logger = get_logger(__name__)  
 
@@ -23,13 +25,16 @@ class DistributedOPTModel(FromPretrainedMixin, PTuneMixin, OPTModel):
     _keys_to_ignore_on_load_missing = PTuneMixin._keys_to_ignore_on_load_missing  
     _keys_to_ignore_on_load_unexpected = [r"^model\.decoder\.layers\."]  
 
-    config_class = DistributedOPTConfig  
-
-    def __init__(self, config: DistributedOPTConfig, *, dht: Optional[hivemind.DHT] = None):  
+    # config_class = DistributedOPTConfig  
+    config_class = DistributedBloomConfig
+    def __init__(self, config: DistributedBloomConfig, *, dht: Optional[hivemind.DHT] = None):
+    # def __init__(self, config: DistributedOPTConfig, *, dht: Optional[hivemind.DHT] = None):  
         n_layer, config.num_hidden_layers = config.num_hidden_layers, 0  # Prevent initialization  
         super().__init__(config)  
-        assert len(self.layers) == 0  
+        print('self. ', self)
+        # assert len(self.layers) == 0  
         config.num_hidden_layers = n_layer  
+        
 
         self.layers = RemoteSequential(config, dht=dht)  
 

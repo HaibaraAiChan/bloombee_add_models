@@ -53,8 +53,10 @@ def load_pretrained_block(
 
     with init_empty_weights():
         block = get_model_block(config, layer_idx=block_index)
-
+    import pdb; pdb.set_trace()
     block_prefix = f"{config.block_prefix}.{block_index}."
+    # if model_name =="facebook/opt-350m":
+    #     model_name = "model-attribution-challenge/bloom-350m"
     state_dict = _load_state_dict_from_repo(
         model_name,
         block_prefix,
@@ -63,7 +65,7 @@ def load_pretrained_block(
         cache_dir=cache_dir,
         max_disk_space=max_disk_space,
     )
-
+    pdb.set_trace()
     for param_name, _ in block.named_parameters():
         assert param_name in state_dict, f"{param_name} not in state dict"
         param = state_dict[param_name]
@@ -89,7 +91,7 @@ def _load_state_dict_from_repo(
 ) -> StateDict:
     if always_needs_auth(model_name) and token is None:
         token = True
-
+    import pdb;pdb.set_trace()
     index_file = _find_index_file(model_name, revision=revision, token=token, cache_dir=cache_dir)
     if index_file.endswith(".index.json"):  # Sharded model
         path = get_file_from_repo(model_name, filename=index_file, use_auth_token=token, cache_dir=cache_dir)
@@ -107,7 +109,7 @@ def _load_state_dict_from_repo(
     else:  # Non-sharded model
         filenames = {index_file}
     logger.debug(f"Loading {block_prefix}* from {filenames}")
-
+    import pdb;pdb.set_trace()
     state_dict = {}
     for filename in filenames:
         shard_state_dict = _load_state_dict_from_repo_file(

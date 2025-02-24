@@ -118,7 +118,7 @@ def quantize_module(model: nn.Module, *, quant_type: QuantType) -> nn.Module:
 def make_tensor_parallel(
     block: nn.Module, model_config: PretrainedConfig, devices: Sequence[torch.device], output_device: torch.device
 ) -> nn.Module:
-    if model_config.model_type == "bloom":
+    if model_config.model_type == "bloom" or model_config.model_type == "opt":
         tp_config = get_bloom_config(model_config, devices)
         del tp_config.state_rules[re.compile(".*word_embeddings.weight$")]
     else:
@@ -127,10 +127,13 @@ def make_tensor_parallel(
         tp_config = None
     tp_block = tp.TensorParallel(block, devices, config=tp_config, output_device=output_device, delay_init=True)
     total_heads = 0
+    
     for tp_shard in tp_block.module_shards:
         for submodule in tp_shard.modules():
             if isinstance(submodule, model_config.attn_class):
                 total_heads += submodule.num_heads
+    # import pdb; pdb.set_trace()
+    # print(" ")
     assert total_heads == model_config.num_attention_heads
     return tp_block
 

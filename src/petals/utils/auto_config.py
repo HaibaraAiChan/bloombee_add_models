@@ -50,7 +50,13 @@ class _AutoDistributedBase:
         proper_cls = getattr(_CLASS_MAPPING[config.model_type], cls._mapping_field)
         if proper_cls is None:
             raise ValueError(f"Petals does not have {cls.__name__} for model type {config.model_type}")
-
+        print('auto_config : model_name_or_path ', model_name_or_path)
+        # if model_name_or_path =="facebook/opt-350m":
+        #     model_name_or_path = "model-attribution-challenge/bloom-350m"
+        
+        # self.block_config.hidden_size=1024
+        res = proper_cls.from_pretrained(model_name_or_path, *args, **kwargs)
+        import pdb;pdb.set_trace()
         return proper_cls.from_pretrained(model_name_or_path, *args, **kwargs)
 
 
