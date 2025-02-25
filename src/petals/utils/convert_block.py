@@ -49,7 +49,8 @@ def convert_block(
     """
     if freeze:
         block.requires_grad_(False)
-
+    print('convert_block.py block', block)
+    print('convert_block.py config', config)
     block = make_tensor_parallel(block, config, tensor_parallel_devices, output_device=output_device)
 
     if quant_type != QuantType.NONE:

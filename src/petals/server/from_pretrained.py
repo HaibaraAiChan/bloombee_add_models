@@ -57,6 +57,9 @@ def load_pretrained_block(
     block_prefix = f"{config.block_prefix}.{block_index}."
     # if model_name =="facebook/opt-350m":
     #     model_name = "model-attribution-challenge/bloom-350m"
+    # if 'opt' in model_name:
+    #     block_prefix=block_prefix[6:]
+        
     state_dict = _load_state_dict_from_repo(
         model_name,
         block_prefix,
@@ -67,13 +70,14 @@ def load_pretrained_block(
     )
     pdb.set_trace()
     for param_name, _ in block.named_parameters():
-        assert param_name in state_dict, f"{param_name} not in state dict"
-        param = state_dict[param_name]
-        if not str(param.dtype).startswith(("torch.uint", "torch.int", "torch.bool")):
-            param = param.to(torch_dtype)
-        set_module_tensor_to_device(block, param_name, "cpu", value=param, dtype=param.dtype)
+        print(param_name)
+        # assert param_name in state_dict, f"{param_name} not in state dict"
+        # param = state_dict[param_name]
+        # if not str(param.dtype).startswith(("torch.uint", "torch.int", "torch.bool")):
+        #     param = param.to(torch_dtype)
+        # set_module_tensor_to_device(block, param_name, "cpu", value=param, dtype=param.dtype)
 
-    logger.info(f"Loaded {model_name} block {block_index}")
+    # logger.info(f"Loaded {model_name} block {block_index}")
     return block
 
 
@@ -111,6 +115,7 @@ def _load_state_dict_from_repo(
     logger.debug(f"Loading {block_prefix}* from {filenames}")
     import pdb;pdb.set_trace()
     state_dict = {}
+    print("block_prefix", block_prefix)
     for filename in filenames:
         shard_state_dict = _load_state_dict_from_repo_file(
             model_name,
@@ -121,6 +126,8 @@ def _load_state_dict_from_repo(
             cache_dir=cache_dir,
             max_disk_space=max_disk_space,
         )
+        pdb.set_trace()
+        print('shard_state_dict', shard_state_dict)
         shard_state_dict = {
             param_name[len(block_prefix) :]: param
             for param_name, param in shard_state_dict.items()

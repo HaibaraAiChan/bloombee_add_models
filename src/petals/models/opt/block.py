@@ -129,9 +129,15 @@ class OptimizedOPTDecoderLayer(OPTDecoderLayer):
         nn.Module.__init__(self)  
         self.embed_dim = config.hidden_size  
         self.self_attn = OptimizedOPTAttention(config=config, is_decoder=True)  
-        self.mlp = OPTMLP(config)  
-        self.input_layernorm = nn.LayerNorm(self.embed_dim, elementwise_affine=config.layer_norm_elementwise_affine)  
-        self.post_attention_layernorm = nn.LayerNorm(self.embed_dim, elementwise_affine=config.layer_norm_elementwise_affine)  
+        # self.mlp = OPTMLP(config)  
+        # self.input_layernorm = nn.LayerNorm(self.embed_dim, elementwise_affine=config.layer_norm_elementwise_affine)  
+        # self.post_attention_layernorm = nn.LayerNorm(self.embed_dim, elementwise_affine=config.layer_norm_elementwise_affine)  
+        self.self_attn_layer_norm = nn.LayerNorm(
+            self.embed_dim, elementwise_affine=config.layer_norm_elementwise_affine
+        )
+        self.fc1 = nn.Linear(self.embed_dim, config.ffn_dim, bias=config.enable_bias)
+        self.fc2 = nn.Linear(config.ffn_dim, self.embed_dim, bias=config.enable_bias)
+        self.final_layer_norm = nn.LayerNorm(self.embed_dim, elementwise_affine=config.layer_norm_elementwise_affine)
 
         self.pre_attn_graph = None  
         self.post_attn_graph = None  

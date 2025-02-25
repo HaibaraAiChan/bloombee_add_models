@@ -16,9 +16,16 @@ logger = get_logger(__name__)
 class DistributedOPTConfig(OPTConfig, ClientConfig, PTuneConfig, LMHeadConfig):  
     block_class = WrappedOPTBlock  
     attn_class = OPTAttention  
-    block_prefix = "model.decoder.layers"  
+    block_prefix = "decoder.layers"  
     
     num_key_value_groups = 1
+    # @property
+    # def num_key_value_groups(self) -> int:
+    #     if self.new_decoder_architecture:
+    #         return self.num_attention_heads // self.num_kv_heads
+    #     # if self.multi_query:
+    #     #     return self.num_attention_heads
+    #     return 1
     
     @classmethod  
     def from_pretrained(  

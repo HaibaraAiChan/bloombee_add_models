@@ -21,7 +21,7 @@ class DistributedOPTModel(FromPretrainedMixin, PTuneMixin, OPTModel):
     """OPTModel, but all transformer layers are hosted by the swarm"""  
 
     _keys_to_ignore_on_load_missing = PTuneMixin._keys_to_ignore_on_load_missing  
-    _keys_to_ignore_on_load_unexpected = [r"^model\.decoder\.layers\."]  
+    _keys_to_ignore_on_load_unexpected = [r"^decoder\.layers\."]  
 
     config_class = DistributedOPTConfig  
 
@@ -30,6 +30,7 @@ class DistributedOPTModel(FromPretrainedMixin, PTuneMixin, OPTModel):
         super().__init__(config)  
         assert len(self.layers) == 0  
         config.num_hidden_layers = n_layer  
+        self.n_head = config.num_attention_heads
 
         self.layers = RemoteSequential(config, dht=dht)  
 
