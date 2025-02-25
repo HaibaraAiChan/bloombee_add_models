@@ -53,7 +53,7 @@ def load_pretrained_block(
 
     with init_empty_weights():
         block = get_model_block(config, layer_idx=block_index)
-    import pdb; pdb.set_trace()
+    # import pdb; pdb.set_trace()
     block_prefix = f"{config.block_prefix}.{block_index}."
     # if model_name =="facebook/opt-350m":
     #     model_name = "model-attribution-challenge/bloom-350m"
@@ -68,16 +68,16 @@ def load_pretrained_block(
         cache_dir=cache_dir,
         max_disk_space=max_disk_space,
     )
-    pdb.set_trace()
+    # pdb.set_trace()
     for param_name, _ in block.named_parameters():
-        print(param_name)
-        # assert param_name in state_dict, f"{param_name} not in state dict"
-        # param = state_dict[param_name]
-        # if not str(param.dtype).startswith(("torch.uint", "torch.int", "torch.bool")):
-        #     param = param.to(torch_dtype)
-        # set_module_tensor_to_device(block, param_name, "cpu", value=param, dtype=param.dtype)
+        # print(param_name)
+        assert param_name in state_dict, f"{param_name} not in state dict"
+        param = state_dict[param_name]
+        if not str(param.dtype).startswith(("torch.uint", "torch.int", "torch.bool")):
+            param = param.to(torch_dtype)
+        set_module_tensor_to_device(block, param_name, "cpu", value=param, dtype=param.dtype)
 
-    # logger.info(f"Loaded {model_name} block {block_index}")
+    logger.info(f"Loaded {model_name} block {block_index}")
     return block
 
 
@@ -95,7 +95,7 @@ def _load_state_dict_from_repo(
 ) -> StateDict:
     if always_needs_auth(model_name) and token is None:
         token = True
-    import pdb;pdb.set_trace()
+    # import pdb;pdb.set_trace()
     index_file = _find_index_file(model_name, revision=revision, token=token, cache_dir=cache_dir)
     if index_file.endswith(".index.json"):  # Sharded model
         path = get_file_from_repo(model_name, filename=index_file, use_auth_token=token, cache_dir=cache_dir)
@@ -113,7 +113,7 @@ def _load_state_dict_from_repo(
     else:  # Non-sharded model
         filenames = {index_file}
     logger.debug(f"Loading {block_prefix}* from {filenames}")
-    import pdb;pdb.set_trace()
+    # import pdb;pdb.set_trace()
     state_dict = {}
     print("block_prefix", block_prefix)
     for filename in filenames:
@@ -126,7 +126,7 @@ def _load_state_dict_from_repo(
             cache_dir=cache_dir,
             max_disk_space=max_disk_space,
         )
-        pdb.set_trace()
+        # pdb.set_trace()
         print('shard_state_dict', shard_state_dict)
         shard_state_dict = {
             param_name[len(block_prefix) :]: param

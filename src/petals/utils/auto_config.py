@@ -55,8 +55,8 @@ class _AutoDistributedBase:
         #     model_name_or_path = "model-attribution-challenge/bloom-350m"
         
         # self.block_config.hidden_size=1024
-        res = proper_cls.from_pretrained(model_name_or_path, *args, **kwargs)
-        import pdb;pdb.set_trace()
+        # res = proper_cls.from_pretrained(model_name_or_path, *args, **kwargs)
+        # import pdb;pdb.set_trace()
         return proper_cls.from_pretrained(model_name_or_path, *args, **kwargs)
 
 

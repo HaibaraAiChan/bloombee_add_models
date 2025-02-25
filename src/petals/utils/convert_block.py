@@ -119,7 +119,7 @@ def quantize_module(model: nn.Module, *, quant_type: QuantType) -> nn.Module:
 def make_tensor_parallel(
     block: nn.Module, model_config: PretrainedConfig, devices: Sequence[torch.device], output_device: torch.device
 ) -> nn.Module:
-    if model_config.model_type == "bloom" or model_config.model_type == "opt":
+    if model_config.model_type == "bloom" :
         tp_config = get_bloom_config(model_config, devices)
         del tp_config.state_rules[re.compile(".*word_embeddings.weight$")]
     else:
