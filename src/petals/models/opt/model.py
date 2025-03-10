@@ -21,18 +21,18 @@ class DistributedOPTModel(FromPretrainedMixin, PTuneMixin, OPTModel):
     """OPTModel, but all transformer layers are hosted by the swarm"""  
 
     _keys_to_ignore_on_load_missing = PTuneMixin._keys_to_ignore_on_load_missing  
-    _keys_to_ignore_on_load_unexpected = [r"^decoder\.layers\."]  
+    _keys_to_ignore_on_load_unexpected = [r"^decoder\.layers\."]  ############<-----
 
     config_class = DistributedOPTConfig  
 
     def __init__(self, config: DistributedOPTConfig, *, dht: Optional[hivemind.DHT] = None):  
         n_layer, config.num_hidden_layers = config.num_hidden_layers, 0  # Prevent initialization  
         super().__init__(config)  
-        assert len(self.layers) == 0  
+        assert len(self.decoder.layers) == 0  ############<-----
         config.num_hidden_layers = n_layer  
         self.n_head = config.num_attention_heads
 
-        self.layers = RemoteSequential(config, dht=dht)  
+        self.decoder.layers = RemoteSequential(config, dht=dht)  ############<-----
 
         self.requires_grad_(False)  # Forbid accumulate grads for embeddings and layernorm  
         self.init_prompts(config)  
@@ -88,7 +88,7 @@ class DistributedOPTModel(FromPretrainedMixin, PTuneMixin, OPTModel):
         hidden_states = inputs_embeds  
         output_shape = input_shape + (hidden_states.size(-1),)  
 
-        hidden_states = self.layers(  
+        hidden_states = self.decoder.layers(  
             hidden_states,  
             prompts=intermediate_prompts,  
             hypo_ids=past_key_values.hypo_ids if past_key_values is not None else None,  
@@ -115,7 +115,7 @@ class DistributedOPTModel(FromPretrainedMixin, PTuneMixin, OPTModel):
 
     @property  
     def word_embeddings(self) -> nn.Embedding:  # For compatibility with RemoteGenerationMixin  
-        return self.embed_tokens  
+        return self.decoder.embed_tokens  
 
     @property  
     def word_embeddings_layernorm(self) -> nn.Module:  # For compatibility with RemoteGenerationMixin  
@@ -123,7 +123,7 @@ class DistributedOPTModel(FromPretrainedMixin, PTuneMixin, OPTModel):
 
     @property  
     def h(self) -> RemoteSequential:  # For compatibility with RemoteGenerationMixin  
-        return self.layers  
+        return self.decoder.layers  
 
     @property  
     def ln_f(self) -> nn.Module:  # For compatibility with RemoteGenerationMixin  
@@ -137,6 +137,7 @@ class DistributedOPTForCausalLM(FromPretrainedMixin, RemoteGenerationMixin, OPTF
     config_class = DistributedOPTConfig  
 
     def __init__(self, config: DistributedOPTConfig):  
+        print('init DistributedOPTForCausalLM ')
         OPTPreTrainedModel.__init__(self, config)  
         self.model = DistributedOPTModel(config)  
         self.vocab_size = config.vocab_size  

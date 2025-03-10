@@ -43,9 +43,9 @@ def main():
 
 @torch.inference_mode()
 def benchmark_inference(process_idx, args, result_pipe):
+    
     tokenizer = AutoTokenizer.from_pretrained(args.model, use_fast=False)
     # Using use_fast=False since LlamaTokenizerFast takes a long time to start, and we decode 1 token at a time anyway
-
     model = AutoDistributedModelForCausalLM.from_pretrained(
         args.model, initial_peers=args.initial_peers, torch_dtype=DTYPE_MAP[args.torch_dtype]
     )
@@ -53,6 +53,8 @@ def benchmark_inference(process_idx, args, result_pipe):
 
     result = ""
     step_times = []
+    
+    print('model', model)
     with model.transformer.h.inference_session(max_length=args.seq_len) as sess:
         for step in range(args.seq_len):
             start_time = perf_counter()

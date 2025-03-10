@@ -32,4 +32,5 @@ class DistributedBloomConfig(BloomConfig, ClientConfig, PTuneConfig, LMHeadConfi
             dht_prefix = str(model_name_or_path) + "-petals"
             dht_prefix = dht_prefix.replace(".", "-")
             logger.info(f"Using DHT prefix: {dht_prefix}")
+        print('bloom/config.py from_pretrained dht_prefix ', dht_prefix)
         return super().from_pretrained(model_name_or_path, *args, dht_prefix=dht_prefix, **kwargs)

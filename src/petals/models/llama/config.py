@@ -39,7 +39,7 @@ class DistributedLlamaConfig(LlamaConfig, ClientConfig, PTuneConfig, LMHeadConfi
             if not dht_prefix.endswith("-hf"):
                 dht_prefix += "-hf"
             logger.info(f"Using DHT prefix: {dht_prefix}")
-
+        print('llama/config.py from_pretrained dht_prefix ', dht_prefix)
         result = super().from_pretrained(model_name_or_path, *args, dht_prefix=dht_prefix, **kwargs)
         config = result[0] if isinstance(result, tuple) else result
         config.pretraining_tp = 1  # This may give less accurate results but it doesn't matter if we use quantization
