@@ -53,13 +53,8 @@ def load_pretrained_block(
 
     with init_empty_weights():
         block = get_model_block(config, layer_idx=block_index)
-    # import pdb; pdb.set_trace()
+
     block_prefix = f"{config.block_prefix}.{block_index}."
-    # if model_name =="facebook/opt-350m":
-    #     model_name = "model-attribution-challenge/bloom-350m"
-    # if 'opt' in model_name:
-    #     block_prefix=block_prefix[6:]
-        
     state_dict = _load_state_dict_from_repo(
         model_name,
         block_prefix,
@@ -68,6 +63,7 @@ def load_pretrained_block(
         cache_dir=cache_dir,
         max_disk_space=max_disk_space,
     )
+  
     # pdb.set_trace()
     for param_name, _ in block.named_parameters():
         # print(param_name)

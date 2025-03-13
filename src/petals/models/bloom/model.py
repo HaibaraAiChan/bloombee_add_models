@@ -82,7 +82,7 @@ class DistributedBloomModel(FromPretrainedMixin, PTuneMixin, BloomModel):
 
         hidden_states = self.word_embeddings_layernorm(inputs_embeds)
         output_shape = input_shape + (hidden_states.size(-1),)
-
+        
         hidden_states = self.h(
             hidden_states,
             prompts=intermediate_prompts,

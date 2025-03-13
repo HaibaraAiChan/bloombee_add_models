@@ -152,7 +152,7 @@ class OptimizedOPTDecoderLayer(OPTDecoderLayer):
     def _optimized_output_layernorm(self, hidden_states):  
         if self.post_attn_graph is None:  
             self.post_attn_graph = make_inference_graphed_callable(  
-                self.post_attention_layernorm.forward, sample_args=(hidden_states,)  
+                self.final_layer_norm.forward, sample_args=(hidden_states,)  
             )  
         return self.post_attn_graph(hidden_states)  
 
@@ -195,7 +195,7 @@ class OptimizedOPTDecoderLayer(OPTDecoderLayer):
         if hidden_states.size(1) == 1 and torch.is_inference_mode_enabled() and hidden_states.device.type == "cuda":  
             hidden_states = self._optimized_output_layernorm(hidden_states)  
         else:  
-            hidden_states = self.post_attention_layernorm(hidden_states)  
+            hidden_states = self.final_layer_norm(hidden_states)  
 
         hidden_states = self.mlp(hidden_states)  
         hidden_states = residual + hidden_states  
@@ -209,6 +209,11 @@ class OptimizedOPTDecoderLayer(OPTDecoderLayer):
             outputs += (present_key_value,)  
 
         return outputs  
+    
+    
+    @property  
+    def input_layernorm(self) -> nn.LayerNorm:  # For compatibility with RemoteGenerationMixin  
+        return self.decoder.self_attn_layer_norm 
 
 
 class WrappedOPTBlock(OptimizedOPTDecoderLayer):  

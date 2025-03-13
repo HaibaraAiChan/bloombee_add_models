@@ -55,11 +55,13 @@ def benchmark_inference(process_idx, args, result_pipe):
     step_times = []
     
     print('model', model)
+    
     with model.transformer.h.inference_session(max_length=args.seq_len) as sess:
         for step in range(args.seq_len):
             start_time = perf_counter()
-
-            outputs = model.generate(max_new_tokens=1, session=sess)
+            
+            outputs = model.generate(max_new_tokens=1, session=sess)  
+            
             result += tokenizer.decode(outputs[0])
 
             if step >= args.warmup_steps:

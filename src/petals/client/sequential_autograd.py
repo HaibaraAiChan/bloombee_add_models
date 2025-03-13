@@ -228,17 +228,22 @@ class _RemoteSequentialAutogradFunction(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, inputs: torch.Tensor, prompts: torch.Tensor, sequence_manager: RemoteSequenceManager):
+        print('enter _RemoteSequentialAutogradFunction forward function')
         batch_size = max(MAX_TOKENS_IN_BATCH // inputs.shape[1], 1)
         input_batches: Sequence[torch.Tensor] = inputs.detach().split(batch_size)
         if prompts is None or is_dummy(prompts):
             prompt_batches = [DUMMY] * len(input_batches)
         else:
             prompt_batches: Sequence[torch.Tensor] = prompts.detach().split(batch_size, dim=1)
-
+        print('enter _RemoteSequentialAutogradFunction forward function before RemoteExpertWorker.run_coroutine')
+        print('input_batches ', input_batches)
+        print('input_batches[0].shape ', input_batches[0].shape)
+        print('prompt_batches ', prompt_batches)
+        print('sequence_manager ', sequence_manager)
         sequence_manager.rpc_info  # lazy init
         outputs = RemoteExpertWorker.run_coroutine(_gather_forward(input_batches, prompt_batches, sequence_manager))
         assert len(outputs) == len(input_batches)
-
+        print('enter _RemoteSequentialAutogradFunction forward function after run_coroutine')
         output_batches = [output[0] for output in outputs]
         intemediate_input_batches = [output[1] for output in outputs]
         sequences_for_batches = [output[2] for output in outputs]
@@ -247,6 +252,8 @@ class _RemoteSequentialAutogradFunction(torch.autograd.Function):
         ctx.sequence_manager = sequence_manager
         ctx.intemediate_input_batches = intemediate_input_batches
         ctx.sequences_for_batches = sequences_for_batches
+        print('enter _RemoteSequentialAutogradFunction forward function before output_batches')
+        
         return torch.cat(output_batches, dim=0)
 
     @staticmethod

@@ -33,7 +33,7 @@ class DistributedOPTModel(FromPretrainedMixin, PTuneMixin, OPTModel):
         self.n_head = config.num_attention_heads
 
         self.decoder.layers = RemoteSequential(config, dht=dht)  ############<-----
-
+        # self.layers = RemoteSequential(config, dht=dht)
         self.requires_grad_(False)  # Forbid accumulate grads for embeddings and layernorm  
         self.init_prompts(config)  
 
@@ -87,13 +87,13 @@ class DistributedOPTModel(FromPretrainedMixin, PTuneMixin, OPTModel):
 
         hidden_states = inputs_embeds  
         output_shape = input_shape + (hidden_states.size(-1),)  
-
+        print('before--------------  hidden_states = self.decoder.layers() ')
         hidden_states = self.decoder.layers(  
             hidden_states,  
             prompts=intermediate_prompts,  
             hypo_ids=past_key_values.hypo_ids if past_key_values is not None else None,  
         )  
-
+        print('after-------------  hidden_states = self.decoder.layers() ')
         if past_key_values is None:  
             past_key_values = RemotePastKeyValues()  
         past_key_values.update_seen(hidden_states.size(1))  
@@ -123,11 +123,14 @@ class DistributedOPTModel(FromPretrainedMixin, PTuneMixin, OPTModel):
 
     @property  
     def h(self) -> RemoteSequential:  # For compatibility with RemoteGenerationMixin  
-        return self.decoder.layers  
+        # return self.layers  
+        return self.decoder.layers 
 
     @property  
     def ln_f(self) -> nn.Module:  # For compatibility with RemoteGenerationMixin  
         return self.norm  
+
+     
 
 
 class DistributedOPTForCausalLM(FromPretrainedMixin, RemoteGenerationMixin, OPTForCausalLM):  

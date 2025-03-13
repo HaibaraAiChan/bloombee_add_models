@@ -87,7 +87,7 @@ class RemoteGenerationMixin(_SkipTokensMixin):
         self._fix_generate_kwargs(kwargs)
         if inputs is None:
             inputs = kwargs.pop("input_ids", None)
-
+        
         if session is not None:
             # If a session specified explicitly, use it
             context_manager = self.use_session(session)
@@ -133,7 +133,7 @@ class RemoteGenerationMixin(_SkipTokensMixin):
                 past_key_values = RemotePastKeyValues()
                 past_key_values.update_seen(session.position)
                 kwargs["past_key_values"] = past_key_values
-            import pdb;pdb.set_trace()
+            # import pdb;pdb.set_trace()
             result = super().generate(inputs, *args, **kwargs)
 
             sequences = result.sequences if isinstance(result, ModelOutput) else result
