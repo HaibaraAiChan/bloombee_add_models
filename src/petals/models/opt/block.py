@@ -17,7 +17,7 @@ from transformers.models.opt.modeling_opt import (
 )  
 
 from petals.utils.cuda_graphs import make_inference_graphed_callable  
-
+from transformers.activations import ACT2FN 
 
 class LayerNorm(nn.Module):  
     def __init__(self, hidden_size, eps=1e-5):  
@@ -63,10 +63,21 @@ class OptimizedOPTAttention(OPTAttention):
         return self._attention_graph(query_states, key_states, value_states, attention_mask)  
 
     def _attention_forward(self, query_states, key_states, value_states, attention_mask):  
-        attn_weights = torch.matmul(query_states, key_states.transpose(-1, -2)) / math.sqrt(self.head_dim)  
-        if attention_mask is not None:  
-            attn_weights = attn_weights + attention_mask  
-        attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)  
+        attn_weights = torch.matmul(query_states, key_states.transpose(3, 2))  
+        if attention_mask is not None:
+            causal_mask = attention_mask[:, :, :, : key_states.shape[-2]]
+            attn_weights = attn_weights + causal_mask 
+        # upcast to fp32 if the weights are in fp16. Please see https://github.com/huggingface/transformers/pull/17437
+        attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
+        if layer_head_mask is not None:
+            if layer_head_mask.size() != (self.num_heads,):
+                raise ValueError(
+                    f"Head mask for a single layer should be of size {(self.num_heads,)}, but is"
+                    f" {layer_head_mask.size()}"
+                )
+            attn_weights = layer_head_mask.view(1, -1, 1, 1) * attn_weights
+
+        attn_probs = nn.functional.dropout(attn_weights, p=self.dropout, training=self.training)
         attn_output = torch.matmul(attn_weights, value_states)  
         return attn_output  
 
@@ -90,22 +101,25 @@ class OptimizedOPTAttention(OPTAttention):
         bsz, q_len, _ = hidden_states.size()  
         print('bsz ', bsz)
         print('q_len ', q_len)
-        query_states = self.q_proj(hidden_states)  
-        key_states = self.k_proj(hidden_states)  
-        value_states = self.v_proj(hidden_states)  
+        query_states = self.q_proj(hidden_states) * self.scaling 
+        query_states = query_states.view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
+        
+        key_states = self.k_proj(hidden_states)
+        value_states = self.v_proj(hidden_states)
+        key_states = key_states.view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
+        value_states = value_states.view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)  
         
         print('key_states.shape', key_states.shape)
 
-        query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)  
-        key_states = key_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)  
-        value_states = value_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)  
-
         if past_key_value is not None:  
+            # save all key/value_states to cache to be re-used for fast auto-regressive generation
             key_states = torch.cat([past_key_value[0], key_states], dim=2)  
             value_states = torch.cat([past_key_value[1], value_states], dim=2)  
         print('after past_key_value is not None key_states.shape', key_states.shape)
+        
+        # use_cache = True
         past_key_value = (key_states, value_states) if use_cache else None  
-        # print("past_key_value ", past_key_value)
+        print("past_key_value ", past_key_value)
         print("past_key_value.shape ", len(list(past_key_value)))
         print("past_key_value.shape ", list(past_key_value)[0].shape)
         print("past_key_value.shape ", list(past_key_value)[1].shape)
@@ -128,7 +142,10 @@ class OptimizedOPTDecoderLayer(OPTDecoderLayer):
     def __init__(self, config: OPTConfig):  
         nn.Module.__init__(self)  
         self.embed_dim = config.hidden_size  
-        self.self_attn = OptimizedOPTAttention(config=config, is_decoder=True)  
+        self.self_attn = OptimizedOPTAttention(config=config, is_decoder=True) 
+        self.do_layer_norm_before = config.do_layer_norm_before
+        self.dropout = config.dropout
+        self.activation_fn = ACT2FN[config.activation_function] 
         # self.mlp = OPTMLP(config)  
         # self.input_layernorm = nn.LayerNorm(self.embed_dim, elementwise_affine=config.layer_norm_elementwise_affine)  
         # self.post_attention_layernorm = nn.LayerNorm(self.embed_dim, elementwise_affine=config.layer_norm_elementwise_affine)  
@@ -145,7 +162,7 @@ class OptimizedOPTDecoderLayer(OPTDecoderLayer):
     def _optimized_input_layernorm(self, hidden_states):  
         if self.pre_attn_graph is None:  
             self.pre_attn_graph = make_inference_graphed_callable(  
-                self.input_layernorm.forward, sample_args=(hidden_states,)  
+                self.self_attn_layer_norm.forward, sample_args=(hidden_states,)  
             )  
         return self.pre_attn_graph(hidden_states)  
 
@@ -167,38 +184,51 @@ class OptimizedOPTDecoderLayer(OPTDecoderLayer):
         cache_position: Optional[torch.LongTensor] = None,  
         **kwargs,  
     ) -> Tuple[torch.FloatTensor, Optional[Tuple[torch.FloatTensor, torch.FloatTensor]]]:  
-        residual = hidden_states  
+        residual = hidden_states
 
-        if hidden_states.size(1) == 1 and torch.is_inference_mode_enabled() and hidden_states.device.type == "cuda":  
-            hidden_states = self._optimized_input_layernorm(hidden_states)  
-        else:  
-            hidden_states = self.input_layernorm(hidden_states)  
+        # 125m, 1.7B, ..., 175B applies layer norm BEFORE attention
+        if self.do_layer_norm_before:
+            hidden_states = self.self_attn_layer_norm(hidden_states)
 
         # Self Attention  
         import pdb; pdb.set_trace() 
         hidden_states, self_attn_weights, present_key_value = self.self_attn(  
-            hidden_states=hidden_states,  
-            attention_mask=attention_mask,  
-            position_ids=position_ids,  
+            hidden_states=hidden_states, 
             past_key_value=past_key_value,  
+            position_ids=position_ids,  
+            attention_mask=attention_mask, 
             output_attentions=output_attentions,  
             use_cache=use_cache,  
             cache_position=cache_position,  
             **kwargs,  
         )  
+        hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
+        hidden_states = residual + hidden_states
 
-        hidden_states = residual + hidden_states  
+        # 350m applies layer norm AFTER attention
+        if not self.do_layer_norm_before:
+            hidden_states = self.self_attn_layer_norm(hidden_states)
 
-        # Fully Connected  
-        residual = hidden_states  
+        # Fully Connected
+        hidden_states_shape = hidden_states.shape
+        hidden_states = hidden_states.reshape(-1, hidden_states.size(-1))
+        residual = hidden_states
 
-        if hidden_states.size(1) == 1 and torch.is_inference_mode_enabled() and hidden_states.device.type == "cuda":  
-            hidden_states = self._optimized_output_layernorm(hidden_states)  
-        else:  
-            hidden_states = self.final_layer_norm(hidden_states)  
+        # 125m, 1.7B, ..., 175B applies layer norm BEFORE attention
+        if self.do_layer_norm_before:
+            hidden_states = self.final_layer_norm(hidden_states)
 
-        hidden_states = self.mlp(hidden_states)  
-        hidden_states = residual + hidden_states  
+        hidden_states = self.fc1(hidden_states)
+        hidden_states = self.activation_fn(hidden_states)
+
+        hidden_states = self.fc2(hidden_states)
+        hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
+
+        hidden_states = (residual + hidden_states).view(hidden_states_shape)
+
+        # 350m applies layer norm AFTER attention
+        if not self.do_layer_norm_before:
+            hidden_states = self.final_layer_norm(hidden_states)
 
         outputs = (hidden_states,)  
 
