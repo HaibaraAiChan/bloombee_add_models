@@ -55,14 +55,17 @@ class OptimizedOPTAttention(OPTAttention):
         super().__init__(*args, **kwargs)  
         self._attention_graph = None  
 
-    def _optimized_attention(self, query_states, key_states, value_states, attention_mask):  
+    def _optimized_attention(self, query_states, key_states, value_states, attention_mask, layer_head_mask):  
+        print('query_states', query_states)
+        print('key_states', key_states)
+        print('value_states', value_states)
         if self._attention_graph is None:  
             self._attention_graph = make_inference_graphed_callable(  
-                self._attention_forward, sample_args=(query_states, key_states, value_states, attention_mask)  
+                self._attention_forward, sample_args=(query_states, key_states, value_states, attention_mask,layer_head_mask)  
             )  
         return self._attention_graph(query_states, key_states, value_states, attention_mask)  
 
-    def _attention_forward(self, query_states, key_states, value_states, attention_mask):  
+    def _attention_forward(self, query_states, key_states, value_states, attention_mask, layer_head_mask):  
         attn_weights = torch.matmul(query_states, key_states.transpose(3, 2))  
         if attention_mask is not None:
             causal_mask = attention_mask[:, :, :, : key_states.shape[-2]]
@@ -85,6 +88,7 @@ class OptimizedOPTAttention(OPTAttention):
         self,  
         hidden_states: torch.Tensor,  
         attention_mask: Optional[torch.Tensor] = None,  
+        layer_head_mask: Optional[torch.Tensor] = None,
         position_ids: Optional[torch.LongTensor] = None,  
         past_key_value: Optional[Tuple[torch.Tensor]] = None,  
         output_attentions: bool = False,  
@@ -118,17 +122,19 @@ class OptimizedOPTAttention(OPTAttention):
         print('after past_key_value is not None key_states.shape', key_states.shape)
         
         # use_cache = True
+        if not past_key_value:
+            past_key_value = (key_states, value_states)
         past_key_value = (key_states, value_states) if use_cache else None  
-        print("past_key_value ", past_key_value)
-        print("past_key_value.shape ", len(list(past_key_value)))
-        print("past_key_value.shape ", list(past_key_value)[0].shape)
-        print("past_key_value.shape ", list(past_key_value)[1].shape)
-        if q_len == 1 and torch.is_inference_mode_enabled() and hidden_states.device.type == "cuda":  
-            print('optimized')
-            attn_output = self._optimized_attention(query_states, key_states, value_states, attention_mask) 
-            print('attn_output.shape, ', attn_output.shape) 
-        else:  
-            attn_output = self._attention_forward(query_states, key_states, value_states, attention_mask)  
+        # print("past_key_value ", past_key_value)
+        # print("past_key_value.shape ", len(list(past_key_value)))
+        # print("past_key_value.shape ", list(past_key_value)[0].shape)
+        # print("past_key_value.shape ", list(past_key_value)[1].shape)
+        # if q_len == 1 and torch.is_inference_mode_enabled() and hidden_states.device.type == "cuda":  
+        #     print('optimized')
+        #     attn_output = self._optimized_attention(query_states, key_states, value_states, attention_mask, layer_head_mask) 
+        #     print('attn_output.shape, ', attn_output.shape) 
+        # else:  
+        attn_output = self._attention_forward(query_states, key_states, value_states, attention_mask, layer_head_mask)  
 
         attn_output = attn_output.transpose(1, 2).contiguous()  
         attn_output = attn_output.reshape(bsz, q_len, self.embed_dim)  
@@ -191,7 +197,7 @@ class OptimizedOPTDecoderLayer(OPTDecoderLayer):
             hidden_states = self.self_attn_layer_norm(hidden_states)
 
         # Self Attention  
-        import pdb; pdb.set_trace() 
+        # import pdb; pdb.set_trace() 
         hidden_states, self_attn_weights, present_key_value = self.self_attn(  
             hidden_states=hidden_states, 
             past_key_value=past_key_value,  
@@ -281,7 +287,7 @@ class WrappedOPTBlock(OptimizedOPTDecoderLayer):
             inputs_embeds=hidden_states,  
             past_key_values_length=past_key_values_length,  
         )  
-        import pdb; pdb.set_trace() 
+        # import pdb; pdb.set_trace() 
         outputs = super().forward(  
             hidden_states,  
             *args,  
