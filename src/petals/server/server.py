@@ -234,7 +234,7 @@ class Server:
         assert isinstance(throughput, float) or throughput in ["auto", "eval", "dry_run"]
         # import pdb;pdb.set_trace()
         print('self.block_config.hidden_size', self.block_config.hidden_size)
-        self.block_config.hidden_size=1024
+        # self.block_config.hidden_size=1024
         if throughput in ["auto", "eval", "dry_run"]:
             force_eval = throughput in ["eval", "dry_run"]
             throughput_info = get_server_throughput(

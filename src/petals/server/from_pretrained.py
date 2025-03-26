@@ -64,9 +64,9 @@ def load_pretrained_block(
         max_disk_space=max_disk_space,
     )
   
-    # pdb.set_trace()
+    # import pdb;pdb.set_trace()
     for param_name, _ in block.named_parameters():
-        # print(param_name)
+        print(param_name)
         assert param_name in state_dict, f"{param_name} not in state dict"
         param = state_dict[param_name]
         if not str(param.dtype).startswith(("torch.uint", "torch.int", "torch.bool")):
@@ -111,7 +111,7 @@ def _load_state_dict_from_repo(
     logger.debug(f"Loading {block_prefix}* from {filenames}")
     # import pdb;pdb.set_trace()
     state_dict = {}
-    print("block_prefix", block_prefix)
+    print("block_prefix", block_prefix) # decoder.layers.0.
     for filename in filenames:
         shard_state_dict = _load_state_dict_from_repo_file(
             model_name,
@@ -123,7 +123,9 @@ def _load_state_dict_from_repo(
             max_disk_space=max_disk_space,
         )
         # pdb.set_trace()
-        print('shard_state_dict', shard_state_dict)
+        # print('shard_state_dict', shard_state_dict.keys())
+        if 'model' in list(shard_state_dict.keys())[0]:
+            block_prefix='model.'+ block_prefix      # model.decoder.layers.0.
         shard_state_dict = {
             param_name[len(block_prefix) :]: param
             for param_name, param in shard_state_dict.items()

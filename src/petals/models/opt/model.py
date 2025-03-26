@@ -145,6 +145,8 @@ class DistributedOPTForCausalLM(FromPretrainedMixin, RemoteGenerationMixin, OPTF
         self.model = DistributedOPTModel(config)  
         self.vocab_size = config.vocab_size  
         self.lm_head = LMHead(config)  
+        # the lm_head weight is automatically tied to the embed tokens weight
+        # self.lm_head = nn.Linear(config.word_embed_proj_dim, config.vocab_size, bias=False)
 
         # Initialize weights and apply final processing  
         self.post_init()  
@@ -155,6 +157,9 @@ class DistributedOPTForCausalLM(FromPretrainedMixin, RemoteGenerationMixin, OPTF
     @property  
     def transformer(self) -> DistributedOPTModel:  # For compatibility with RemoteGenerationMixin  
         return self.model  
+
+
+
 
 
 class DistributedOPTForSequenceClassification(FromPretrainedMixin, OPTForSequenceClassification):  
@@ -168,7 +173,8 @@ class DistributedOPTForSequenceClassification(FromPretrainedMixin, OPTForSequenc
         self.num_labels = config.num_labels  
 
         self.model = DistributedOPTModel(config)  
-        self.score = nn.Linear(config.hidden_size, self.num_labels, bias=False)  
+        # self.score = nn.Linear(config.hidden_size, self.num_labels, bias=False)  
+        self.score = nn.Linear(config.word_embed_proj_dim, self.num_labels, bias=False)
 
         # Initialize weights and apply final processing  
         self.post_init()  

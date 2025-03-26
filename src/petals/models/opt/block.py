@@ -64,7 +64,7 @@ class OptimizedOPTAttention(OPTAttention):
                 self._attention_forward, sample_args=(query_states, key_states, value_states, attention_mask,layer_head_mask)  
             )  
         return self._attention_graph(query_states, key_states, value_states, attention_mask)  
-
+    ######---------------------------------------------------------------------------------------
     def _attention_forward(self, query_states, key_states, value_states, attention_mask, layer_head_mask):  
         attn_weights = torch.matmul(query_states, key_states.transpose(3, 2))  
         if attention_mask is not None:
@@ -81,7 +81,8 @@ class OptimizedOPTAttention(OPTAttention):
             attn_weights = layer_head_mask.view(1, -1, 1, 1) * attn_weights
 
         attn_probs = nn.functional.dropout(attn_weights, p=self.dropout, training=self.training)
-        attn_output = torch.matmul(attn_weights, value_states)  
+        attn_output = torch.matmul(attn_weights, value_states) 
+         
         return attn_output  
 
     def forward(  
@@ -134,13 +135,14 @@ class OptimizedOPTAttention(OPTAttention):
         #     attn_output = self._optimized_attention(query_states, key_states, value_states, attention_mask, layer_head_mask) 
         #     print('attn_output.shape, ', attn_output.shape) 
         # else:  
-        attn_output = self._attention_forward(query_states, key_states, value_states, attention_mask, layer_head_mask)  
-
+        # import pdb; pdb.set_trace()
+        attn_output = self._attention_forward(query_states, key_states, value_states, attention_mask, layer_head_mask)  # torch.Size([1, 1, 16, 64])
+        
         attn_output = attn_output.transpose(1, 2).contiguous()  
-        attn_output = attn_output.reshape(bsz, q_len, self.embed_dim)  
-
-        attn_output = self.out_proj(attn_output)  
-
+        attn_output = attn_output.reshape(bsz, q_len, self.embed_dim)  # torch.Size([1, 1, 1024])
+        
+        attn_output = self.out_proj(attn_output)   # attn_output torch.Size([1, 1, 1024])
+        
         return attn_output, None, past_key_value  
 
 
@@ -209,7 +211,7 @@ class OptimizedOPTDecoderLayer(OPTDecoderLayer):
             **kwargs,  
         )  
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
-        hidden_states = residual + hidden_states
+        hidden_states = residual + hidden_states   # hidden_states torch.Size([1, 1, 1024])
 
         # 350m applies layer norm AFTER attention
         if not self.do_layer_norm_before:
@@ -230,7 +232,7 @@ class OptimizedOPTDecoderLayer(OPTDecoderLayer):
         hidden_states = self.fc2(hidden_states)
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
 
-        hidden_states = (residual + hidden_states).view(hidden_states_shape)
+        hidden_states = (residual + hidden_states).view(hidden_states_shape) # hidden_states.shape torch.Size([1, 1, 1024])
 
         # 350m applies layer norm AFTER attention
         if not self.do_layer_norm_before:
@@ -243,7 +245,7 @@ class OptimizedOPTDecoderLayer(OPTDecoderLayer):
 
         if use_cache:  
             outputs += (present_key_value,)  
-
+        # import pdb; pdb.set_trace()
         return outputs  
     
     
@@ -267,11 +269,13 @@ class WrappedOPTBlock(OptimizedOPTDecoderLayer):
 
         seq_length_with_past = seq_length  
         past_key_values_length = 0  
-
+        
         past_key_value = layer_past  
+        print('1. past_key_value', past_key_value)
         if past_key_value is not None:  
             past_key_values_length = past_key_value[0].shape[2]  
             seq_length_with_past = seq_length_with_past + past_key_values_length  
+            print('2. past_key_value', past_key_value)
             past_key_value = self._reorder_cache_from_bloom_to_opt(past_key_value, batch_size, past_key_values_length)  
 
         assert position_ids is None  
