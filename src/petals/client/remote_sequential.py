@@ -50,7 +50,7 @@ class RemoteSequential(nn.Module):
         self._active_session = ContextVar("active_session", default=None)
 
     def forward(self, inputs: torch.Tensor, prompts: Optional[torch.Tensor] = None, **kwargs) -> torch.Tensor:
-        print('inputs',inputs)
+        print('inputs',inputs.shape)
         print('kwargs', kwargs.values())
         kwargs = ({key: None for key in kwargs}  )
         print('kwargs after ', kwargs.values())
@@ -59,6 +59,8 @@ class RemoteSequential(nn.Module):
         if self.active_session is None:
             assert all(v is None for v in kwargs.values()), f"Extra kwargs are not supported in forward: {kwargs}"
             print('before _RemoteSequentialAutogradFunction')
+            # temp_=_RemoteSequentialAutogradFunction.apply(inputs, prompts, self.sequence_manager)
+            # print('temp_.shape', temp_.shape)
             return _RemoteSequentialAutogradFunction.apply(inputs, prompts, self.sequence_manager)
         else:
             print('self.active_session.step')

@@ -136,6 +136,7 @@ class RemoteGenerationMixin(_SkipTokensMixin):
             # import pdb;pdb.set_trace()
             
             result = super().generate(inputs, *args, **kwargs)
+            print('remote_generation result ', result)
 
             sequences = result.sequences if isinstance(result, ModelOutput) else result
             # Save tokens from this .generate() call

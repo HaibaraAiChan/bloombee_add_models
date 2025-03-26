@@ -48,5 +48,7 @@ class DistributedOPTConfig(OPTConfig, ClientConfig, PTuneConfig, LMHeadConfig):
         print('opt/config.py from_pretrained dht_prefix ', dht_prefix)
         result = super().from_pretrained(model_name_or_path, *args, dht_prefix=dht_prefix, **kwargs)  
         config = result[0] if isinstance(result, tuple) else result  
-        config.use_cache = True  # use_cache=False leads to identical results but is slower and not supported by Petals  
+        # config.use_cache = True  # use_cache=False leads to identical results but is slower and not supported by Petals  
+        config.use_cache = False  # use_cache=False leads to identical results but is slower and not supported by Petals  
+        
         return result
