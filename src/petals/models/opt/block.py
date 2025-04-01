@@ -271,11 +271,9 @@ class WrappedOPTBlock(OptimizedOPTDecoderLayer):
         past_key_values_length = 0  
         
         past_key_value = layer_past  
-        print('1. past_key_value', past_key_value)
         if past_key_value is not None:  
             past_key_values_length = past_key_value[0].shape[2]  
             seq_length_with_past = seq_length_with_past + past_key_values_length  
-            print('2. past_key_value', past_key_value)
             past_key_value = self._reorder_cache_from_bloom_to_opt(past_key_value, batch_size, past_key_values_length)  
 
         assert position_ids is None  
@@ -285,13 +283,23 @@ class WrappedOPTBlock(OptimizedOPTDecoderLayer):
             attention_mask = torch.ones(  
                 (batch_size, seq_length_with_past), dtype=torch.bool, device=hidden_states.device  
             )  
+        elif attention_mask.shape[1] != seq_length_with_past:
+            # Resize attention mask to match expected length
+            new_attention_mask = torch.ones(
+                (batch_size, seq_length_with_past), dtype=torch.bool, device=hidden_states.device
+            )
+            # Copy the original mask values where possible
+            min_len = min(attention_mask.shape[1], seq_length_with_past)
+            new_attention_mask[:, :min_len] = attention_mask[:, :min_len]
+            attention_mask = new_attention_mask
+
         attention_mask = _prepare_4d_causal_attention_mask(  
             attention_mask=attention_mask,  
             input_shape=(batch_size, seq_length),  
             inputs_embeds=hidden_states,  
             past_key_values_length=past_key_values_length,  
         )  
-        # import pdb; pdb.set_trace() 
+
         outputs = super().forward(  
             hidden_states,  
             *args,  
